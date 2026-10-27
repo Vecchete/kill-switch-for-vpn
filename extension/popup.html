@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kill Switch for VPN</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --text: #1f1f1f;
+      --muted: #5f6368;
+      --background: #ffffff;
+      --line: #dadce0;
+      --blocking: #b3261e;
+      --protected: #1e6b35;
+      --accent: #0b57d0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text: #e3e3e3;
+        --muted: #a8abaf;
+        --background: #202124;
+        --line: #3c4043;
+        --blocking: #f2b8b5;
+        --protected: #6dd58c;
+        --accent: #a8c7fa;
+      }
+    }
+    body {
+      margin: 0;
+      width: 300px;
+      background: var(--background);
+      color: var(--text);
+      font: 14px/1.4 system-ui, "Segoe UI", sans-serif;
+    }
+    main {
+      padding: 16px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+    #status {
+      margin: 0 0 12px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+    }
+    #status[data-state="blocking"] {
+      color: var(--blocking);
+    }
+    #status[data-state="protected"] {
+      color: var(--protected);
+    }
+    label {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 8px 0;
+      cursor: pointer;
+    }
+    input {
+      flex: none;
+      width: 16px;
+      height: 16px;
+      margin: 2px 0 0;
+      accent-color: var(--accent);
+    }
+    input:disabled + span {
+      color: var(--muted);
+    }
+    .hint {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Kill Switch for VPN</h1>
+    <p id="status" role="status" data-state="">Checking the VPN...</p>
+    <label>
+      <input type="checkbox" id="enabled" role="switch">
+      <span>Kill switch
+        <span class="hint">Blocks every request from your tabs while no VPN extension is connected.</span>
+      </span>
+    </label>
+    <label>
+      <input type="checkbox" id="allowLocalNetwork">
+      <span>Allow the local network while the VPN is off
+        <span class="hint">Lets localhost, *.local and private IP addresses load.</span>
+      </span>
+    </label>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
