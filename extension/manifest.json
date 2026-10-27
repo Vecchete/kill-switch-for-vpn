@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kill Switch for VPN",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Blocks web traffic in your tabs while no VPN extension is connected, and reloads the blocked tabs once it connects.",
   "minimum_chrome_version": "116",
   "icons": {

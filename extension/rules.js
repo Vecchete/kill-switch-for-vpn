@@ -1,7 +1,7 @@
 // Dynamic rules survive a browser restart, so the navigation block is in place
 // before the service worker runs. Session rules are cleared with the browser.
 export const BLOCK_NAVIGATION_RULE_ID = 1;
-export const ALLOW_LOCAL_NETWORK_RULE_ID = 2;
+export const ALLOW_LOCAL_NETWORK_RULE_IDS = Object.freeze([2, 3, 4]);
 export const BLOCK_TAB_TRAFFIC_RULE_ID = 101;
 export const ALLOW_NAVIGATION_RULE_ID = 102;
 
@@ -20,14 +20,16 @@ export const ALL_RESOURCE_TYPES = Object.freeze([
 const NAVIGATION_TYPES = Object.freeze(['main_frame', 'sub_frame']);
 const WEB_URL = '^(https?|wss?)://';
 
-// localhost, *.local, loopback, private and link-local IPv4, IPv6 loopback,
-// unique local and link-local addresses.
-export const LOCAL_NETWORK_REGEX =
-  '^(https?|wss?)://(localhost|[a-z0-9-]+(\\.[a-z0-9-]+)*\\.local' +
-  '|127(\\.[0-9]{1,3}){3}|10(\\.[0-9]{1,3}){3}|192\\.168(\\.[0-9]{1,3}){2}' +
-  '|172\\.(1[6-9]|2[0-9]|3[01])(\\.[0-9]{1,3}){2}|169\\.254(\\.[0-9]{1,3}){2}' +
-  '|\\[(::1|f[cd][0-9a-f]{2}:[0-9a-f:.]*|fe[89ab][0-9a-f]:[0-9a-f:.]*)\\])' +
-  '(:[0-9]+)?([/?#]|$)';
+// localhost and *.local, then loopback, private and link-local IPv4, then IPv6
+// loopback, unique local and link-local addresses. The browser compiles each
+// regexFilter with RE2 under a small memory limit, and one pattern for all three
+// is refused (memoryLimitExceeded), so they are separate rules.
+export const LOCAL_NETWORK_REGEXES = Object.freeze([
+  '^(https?|wss?)://(localhost|[a-z0-9-]+(\\.[a-z0-9-]+)*\\.local)([:/?#]|$)',
+  '^(https?|wss?)://((127|10)(\\.[0-9]+){3}|192\\.168(\\.[0-9]+){2}' +
+    '|172\\.(1[6-9]|2[0-9]|3[01])(\\.[0-9]+){2}|169\\.254(\\.[0-9]+){2})([:/?#]|$)',
+  '^(https?|wss?)://\\[(::1|f[cd][0-9a-f:.]*|fe[89ab][0-9a-f:.]*)\\]([:/?#]|$)'
+]);
 
 export function isVpnConnected(proxyDetails) {
   const mode = proxyDetails?.value?.mode;
@@ -52,12 +54,12 @@ export function dynamicRulesFor(settings) {
     condition: { regexFilter: WEB_URL, resourceTypes: [...NAVIGATION_TYPES] }
   }];
   if (settings.allowLocalNetwork) {
-    rules.push({
-      id: ALLOW_LOCAL_NETWORK_RULE_ID,
+    LOCAL_NETWORK_REGEXES.forEach((regexFilter, index) => rules.push({
+      id: ALLOW_LOCAL_NETWORK_RULE_IDS[index],
       priority: 2,
       action: { type: 'allow' },
-      condition: { regexFilter: LOCAL_NETWORK_REGEX, resourceTypes: [...ALL_RESOURCE_TYPES] }
-    });
+      condition: { regexFilter, resourceTypes: [...ALL_RESOURCE_TYPES] }
+    }));
   }
   return rules;
 }

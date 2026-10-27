@@ -4,7 +4,7 @@ import { access, readFile } from 'node:fs/promises';
 import {
   ALL_RESOURCE_TYPES,
   DEFAULT_SETTINGS,
-  LOCAL_NETWORK_REGEX,
+  LOCAL_NETWORK_REGEXES,
   TAB_ID_NONE,
   dynamicRulesFor,
   isVpnConnected,
@@ -36,7 +36,7 @@ test('the persistent rule blocks only page loads, so the VPN extension can still
   assert.equal(rule.action.type, 'block');
   assert.deepEqual(rule.condition.resourceTypes, ['main_frame', 'sub_frame']);
   assert.equal(dynamicRulesFor({ enabled: false, allowLocalNetwork: true }).length, 0);
-  assert.equal(dynamicRulesFor({ enabled: true, allowLocalNetwork: true }).length, 2);
+  assert.equal(dynamicRulesFor({ enabled: true, allowLocalNetwork: true }).length, 1 + LOCAL_NETWORK_REGEXES.length);
 });
 
 test('while blocking, every request from a tab is blocked and requests outside tabs are not', () => {
@@ -54,12 +54,15 @@ test('once protected, an allow rule outranks the persistent block', () => {
   assert.deepEqual(sessionRulesFor('off'), []);
 });
 
-test('the local network allow rule outranks both block rules', () => {
+test('the local network allow rules outrank both block rules', () => {
   const rules = dynamicRulesFor({ enabled: true, allowLocalNetwork: true });
-  const allow = rules.find((rule) => rule.action.type === 'allow');
+  const allows = rules.filter((rule) => rule.action.type === 'allow');
   const blocks = [...rules.filter((rule) => rule.action.type === 'block'), ...sessionRulesFor('blocking')];
-  for (const block of blocks) {
-    assert.ok(allow.priority > block.priority);
+  assert.equal(allows.length, LOCAL_NETWORK_REGEXES.length);
+  for (const allow of allows) {
+    for (const block of blocks) {
+      assert.ok(allow.priority > block.priority);
+    }
   }
 });
 
@@ -72,8 +75,9 @@ test('rule ids never collide', () => {
   assert.equal(new Set(ids).size, ids.length);
 });
 
-test('the local network pattern matches private addresses only', () => {
-  const pattern = new RegExp(LOCAL_NETWORK_REGEX, 'i');
+test('the local network patterns match private addresses only', () => {
+  const patterns = LOCAL_NETWORK_REGEXES.map((regex) => new RegExp(regex, 'i'));
+  const isLocal = (url) => patterns.some((pattern) => pattern.test(url));
   const local = [
     'http://localhost:8080/', 'https://printer.local/status', 'http://127.0.0.1/',
     'http://10.1.2.3/', 'http://192.168.1.1', 'https://172.16.0.5:8443/x',
@@ -86,15 +90,20 @@ test('the local network pattern matches private addresses only', () => {
     'https://local/', 'https://my.local.example.com/', 'http://[2001:db8::1]/'
   ];
   for (const url of local) {
-    assert.match(url, pattern, url);
+    assert.ok(isLocal(url), url);
   }
   for (const url of remote) {
-    assert.doesNotMatch(url, pattern, url);
+    assert.ok(!isLocal(url), url);
   }
 });
 
-test('the local network pattern is ASCII, as regexFilter requires', () => {
-  assert.match(LOCAL_NETWORK_REGEX, /^[\x20-\x7e]+$/);
+// Edge refused a 224 character pattern for all three ranges (memoryLimitExceeded). The real
+// check is isRegexSupported in a browser; this only catches a pattern that grew a lot.
+test('the local network patterns stay ASCII and short, as regexFilter requires', () => {
+  for (const regex of LOCAL_NETWORK_REGEXES) {
+    assert.match(regex, /^[\x20-\x7e]+$/);
+    assert.ok(regex.length <= 150, `${regex.length} characters: ${regex}`);
+  }
 });
 
 test('rules are compared on the fields the extension sets', () => {

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ALLOW_LOCAL_NETWORK_RULE_ID,
+  ALLOW_LOCAL_NETWORK_RULE_IDS,
   ALLOW_NAVIGATION_RULE_ID,
   BLOCK_NAVIGATION_RULE_ID,
   BLOCK_TAB_TRAFFIC_RULE_ID
@@ -39,7 +39,7 @@ function createStorageArea(areaName, onChanged) {
   };
 }
 
-function createFakeChrome({ proxyMode = 'system' } = {}) {
+function createFakeChrome({ proxyMode = 'system', refuseRuleIds = [] } = {}) {
   const onChanged = createEvent();
   const proxyChanged = createEvent();
   const ruleSets = { dynamic: [], session: [] };
@@ -48,6 +48,9 @@ function createFakeChrome({ proxyMode = 'system' } = {}) {
   let mode = proxyMode;
 
   const updater = (name) => async ({ removeRuleIds = [], addRules = [] }) => {
+    if (addRules.some((rule) => refuseRuleIds.includes(rule.id))) {
+      throw new Error('rule refused');
+    }
     const kept = ruleSets[name].filter((rule) => !removeRuleIds.includes(rule.id));
     for (const rule of addRules) {
       if (kept.some((existing) => existing.id === rule.id)) {
@@ -154,8 +157,24 @@ test('turning the kill switch off removes every rule and reloads the blocked tab
 
   await fake.chrome.storage.local.set({ enabled: true, allowLocalNetwork: true });
   await background.settled();
-  assert.deepEqual(fake.ids('dynamic'), [BLOCK_NAVIGATION_RULE_ID, ALLOW_LOCAL_NETWORK_RULE_ID]);
+  assert.deepEqual(fake.ids('dynamic'), [BLOCK_NAVIGATION_RULE_ID, ...ALLOW_LOCAL_NETWORK_RULE_IDS]);
   assert.deepEqual(fake.ids('session'), [BLOCK_TAB_TRAFFIC_RULE_ID]);
+});
+
+test('when the browser refuses a rule, the block rules stay in place', async () => {
+  const fake = createFakeChrome({ refuseRuleIds: [ALLOW_LOCAL_NETWORK_RULE_IDS[0]] });
+  const background = await start(fake);
+  const consoleError = console.error;
+  console.error = () => {};
+  try {
+    await fake.chrome.storage.local.set({ allowLocalNetwork: true });
+    await background.settled();
+  } finally {
+    console.error = consoleError;
+  }
+  assert.deepEqual(fake.ids('dynamic'), [BLOCK_NAVIGATION_RULE_ID]);
+  assert.deepEqual(fake.ids('session'), [BLOCK_TAB_TRAFFIC_RULE_ID]);
+  assert.equal(fake.badge.text, 'STOP');
 });
 
 test('a page that fails right after the VPN connects is retried once', async () => {

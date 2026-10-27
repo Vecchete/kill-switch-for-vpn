@@ -1,6 +1,6 @@
 # Microsoft Edge Add-ons listing
 
-Everything to enter in Partner Center for version 1.0.0. Build the package with `npm run package`, it writes `dist/kill-switch-for-vpn-1.0.0.zip`.
+Everything to enter in Partner Center for version 1.0.1. Build the package with `npm run package`, it writes `dist/kill-switch-for-vpn-1.0.1.zip`.
 
 ## Availability
 

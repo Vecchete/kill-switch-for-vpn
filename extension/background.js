@@ -53,8 +53,16 @@ async function readSettings() {
 
 async function replaceRules(get, update, wanted) {
   const current = await get();
-  if (!sameRules(current, wanted)) {
-    await update({ removeRuleIds: current.map((rule) => rule.id), addRules: wanted });
+  if (sameRules(current, wanted)) {
+    return;
+  }
+  const removeRuleIds = current.map((rule) => rule.id);
+  try {
+    await update({ removeRuleIds, addRules: wanted });
+  } catch (error) {
+    // Never fail open: when the browser refuses a rule, the block rules go in alone.
+    console.error('Kill Switch for VPN: a rule was refused, keeping only the block rules:', error);
+    await update({ removeRuleIds, addRules: wanted.filter((rule) => rule.action.type === 'block') });
   }
 }
 

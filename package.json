@@ -1,6 +1,6 @@
 {
   "name": "kill-switch-for-vpn",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Browser extension that blocks web traffic in your tabs while no VPN extension is connected.",
   "license": "MIT",
